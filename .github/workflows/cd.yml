@@ -1,0 +1,49 @@
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows:
+      - CI Pipeline
+    types:
+      - completed
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+
+  deploy:
+    name: Build and Publish Docker Image
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository_owner }}/session16-cicd:latest .
+
+      - name: Push Docker image
+        run: |
+          docker push \
+            ghcr.io/${{ github.repository_owner }}/session16-cicd:latest
+
+      - name: Deployment summary
+        run: |
+          echo "CI pipeline completed successfully."
+          echo "Docker image published successfully."
+          echo "Image: ghcr.io/${{ github.repository_owner }}/session16-cicd:latest"
